@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+
+import time
+import random
+import gym
+import gym_minigrid
+import numpy as np
+%matplotlib auto
+
+# Load the gym environment
+env = gym.make('MiniGrid-Empty-8x8-v0')
+env.reset()
+
+gridDimension = 6
+
+qvalues = np.zeros((gridDimension, gridDimension, 4, 3))
+#4, 7, 7, 2, 4, 3
+#2 (wall or no wall + gray or green)
+#4 is direction
+#3 is actions
+#7, 7, 2 is grid info
+#4 is information from 4 observations
+
+discount = 0.9
+gamma = 0.8
+
+sum = 0
+for i in range(0, 100):
+    
+    rew = 0
+    steps = 0
+    x = 0
+    y = 0
+    direction = 1 #North = 0, East = 1, South = 2, West = 3
+    episode = []
+    
+    for j in range(0, 100):
+        #print("step {}".format(i))
+    
+        # Pick a random action
+        action = random.randint(0, env.action_space.n - 5)
+
+        obs, reward, done, info = env.step(action)
+        episode.append([x, y, direction, action])
+        
+        if action == 0:
+            direction -= 1
+            if direction == -1:
+                direction = 3
+        elif action == 1:
+            direction += 1
+            if direction == 4:
+                direction = 0
+        else:
+            if direction == 0 and y < gridDimension - 1:
+                y += 1
+            elif direction == 1 and x < gridDimension - 1:
+                x += 1
+            elif direction == 2 and y > 0:
+                y -= 1
+            elif direction == 3 and x > 0:
+                x -= 1
+        
+        steps += 1
+
+        #env.render()
+
+        #time.sleep(0.01)
+        
+        if done:
+            rew = reward
+            break
+    
+    env.reset()
+    sum += steps
+    
+    if rew == 0:
+        continue;
+
+    exp = len(episode) - 1
+    for x in episode:
+        current = qvalues[x[0]][x[1]][x[2]][x[3]]
+        if current == 0:
+            qvalues[x[0]][x[1]][x[2]][x[3]] = rew * discount ** exp
+        else:
+            qvalues[x[0]][x[1]][x[2]][x[3]] += rew * discount ** exp
+        exp -= 1
+        
+print("Randomized model average steps (including ones that failed at 100 steps):")
+print(1.0 * sum / 100)
+print(qvalues)
+
+print("Trained model steps:")
+env.reset()
+env.render()
+time.sleep(2)
+
+x = 0
+y = 0
+direction = 1 #North = 0, East = 1, South = 2, West = 3
+steps = 0
+for i in range(0, 100):
+    maxreward = 0
+    actiontotake = 0;
+    index = 0
+    print([x, y, direction])
+    print(qvalues[x][y][direction])
+    for value in qvalues[x][y][direction]:
+        if value > maxreward:
+            maxreward = value
+            actiontotake = index
+        index += 1
+    print(actiontotake)
+    
+    if actiontotake == 0:
+        direction -= 1
+        if direction == -1:
+            direction = 3
+    elif actiontotake == 1:
+        direction += 1
+        if direction == 4:
+            direction = 0
+    else:
+        if direction == 0 and y < gridDimension - 1:
+            y += 1
+        elif direction == 1 and x < gridDimension - 1:
+            x += 1
+        elif direction == 2 and y > 0:
+            y -= 1
+        elif direction == 3 and x > 0:
+            x -= 1
+
+    steps += 1
+    
+    reward = env.step(actiontotake)[1]
+    
+    env.render()
+    time.sleep(0.1)
+    
+    if reward > 0:
+        break
+
+print(steps)
+time.sleep(2)
+
+# Test the close method
+env.close()
